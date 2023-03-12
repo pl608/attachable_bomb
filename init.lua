@@ -1,4 +1,21 @@
 local time_to_explode = minetest.settings:get('count_down_time') or 10
+
+attach_bomb = {}
+attach_bomb.detacher_items = {
+    'default:shovel_stone',
+    'default:shovel_steel',
+    'default:shovel_mese',
+    'default:shovel_diamond'
+}
+
+function check_in(name) 
+    if name == nil then return false end -- cause nil isnt in the list :P
+    for i, n in pairs(attach_bomb.detacher_items) do
+        if name == n then return true end
+    end
+    return false
+end
+
 minetest.register_entity("attach_bomb:bomb_ent", {
     initial_properties = {
         visual='sprite',
@@ -6,7 +23,11 @@ minetest.register_entity("attach_bomb:bomb_ent", {
         textures ={'attach_bombs_blink_on.png'},
         visual_size = {x = .5,y=.5}
     },
-    on_punch = function(self, puncher) explode(self.object, 10) end,--larger radius for trigger
+    on_punch = function(self, puncher) 
+        if ctf_teams.get(puncher:get_player_name()) ~= ctf_teams.get(self.attacher:get_player_name()) and check_in(puncher:get_wielded_item().get_name(puncher:get_wielded_item())) then self.object:remove() 
+        else explode(self.object, 10)  end
+
+    end,--larger radius for trigger
     on_step = function(self,dtime,moveresult)
         local obj = self.object
 
@@ -46,15 +67,17 @@ minetest.register_craftitem('attach_bomb:bomb_item', {
     desciption='Left-Click(hit) a player to attach',
     image='attach_bombs_inv.png',
     on_use= function(item_stack,user, pointed_thing)
-        if minetest.is_player(pointed_thing.ref) then
-            local pos = minetest.get_pointed_thing_position(pointed_thing)
-            if pos==nil then pos = {x=0,y=0,z=0} end
-            local ent = minetest.add_entity(pos, 'attach_bomb:bomb_ent')
-            ent:set_attach(pointed_thing.ref,'',{x=0,y=20,z=0})
-            ent:get_luaentity().attacher=user
-            minetest.log('action','[Attach_Bomb] '..ent:get_luaentity().attacher:get_player_name()..' attached a bomb to '..pointed_thing.ref:get_player_name())
-			item_stack:take_item()
-        end
+        if minetest.is_player(pointed_thing.ref) ~= true then return nil end
+        if ctf_teams.get(user:get_player_name()) == ctf_teams.get(pointed_thing.ref:get_player_name()) then minetest.chat_send_player(user:get_player_name(), "You can't attach bomb to team members!") return nil end -- dont attach bombs to team members
+        
+        local pos = minetest.get_pointed_thing_position(pointed_thing)
+        if pos==nil then pos = {x=0,y=0,z=0} end
+        local ent = minetest.add_entity(pos, 'attach_bomb:bomb_ent')
+        ent:set_attach(pointed_thing.ref,'',{x=0,y=20,z=0})
+        ent:get_luaentity().attacher=user
+        minetest.log('action','[Attach_Bomb] '..ent:get_luaentity().attacher:get_player_name()..' attached a bomb to '..pointed_thing.ref:get_player_name())
+        item_stack:take_item()
+        return item_stack
     end
 })
 
